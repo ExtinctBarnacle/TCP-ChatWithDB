@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Text.Json;
 using System.Windows.Forms;
+using System.Threading;
 
 namespace TCP_ChatWithDB
 {
@@ -13,15 +14,16 @@ namespace TCP_ChatWithDB
 
         private void ChatMainWindow_Load(object sender, EventArgs e)
         {
+            ChatClient.MainWindow = this;
             ChatClient.serverResponse = ChatClient.SendMessageAsync("CH").Result;
-            //while (сhatClient.serverResponse == "") { }
             string[] history = JsonSerializer.Deserialize<string[]> (ChatClient.serverResponse);
             // Array.Reverse (history);
             //ChatHistory.Items.AddRange(history);
+            ChatHistory.Items.Clear();
             for (int i = history.Length - 1; i > -1; i--)
             {
                 if (history[i] == null) history[i] = "";
-                ChatHistory.Items.Add(history[i]);
+               ChatHistory.Items.Add(history[i]);
             }
             ChatClient.OnlineStatus = false;
         }
@@ -36,11 +38,12 @@ namespace TCP_ChatWithDB
         }
         private void MessageBox_KeyUp(object sender, System.Windows.Forms.KeyEventArgs e)
         {
+            if (!ChatClient.OnlineStatus) return;
             if (e.KeyCode == Keys.Enter)
             {
                 //ChatClient.user.Name = txtUser.Text;
                 ChatClient.CreateMessageObject(MessageBox.Text);
-                ChatHistory.Items.Insert(0, DateTime.Now.ToString() + " " + MessageBox.Text);
+                ChatHistory.Items.Insert(0, txtUser.Text + " " + DateTime.Now.ToString() + " " + MessageBox.Text);
                 MessageBox.Text = string.Empty;
             }
         }
@@ -57,13 +60,18 @@ namespace TCP_ChatWithDB
                 txtUser.ReadOnly = true;
                 ChatClient.OnlineStatus = true;
                 btnConnect.Text = "ONLINE";
-                ChatClient.DoOnlineLoop();
+                Thread thread = new Thread(ChatClient.DoOnlineLoop);
+                thread.Start();
             }
             else 
             {
                 ChatClient.OnlineStatus = false;
                 btnConnect.Text = "OFFLINE";
             }
+        }
+        public ListBox getChatHistory()
+        {
+            return ChatHistory;
         }
     }
 }

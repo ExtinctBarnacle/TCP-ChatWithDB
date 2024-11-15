@@ -45,6 +45,7 @@
             this.MessageBox.Size = new System.Drawing.Size(963, 26);
             this.MessageBox.TabIndex = 0;
             this.MessageBox.TextChanged += new System.EventHandler(this.MessageBox_TextChanged);
+            this.MessageBox.KeyUp += this.MessageBox_KeyUp;
             // 
             // ChatHistory
             // 

@@ -7,6 +7,8 @@ using System.Text.Json;
 using System.Net;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
+using System.Windows.Forms;
 
 namespace TCP_ChatWithDB
 {
@@ -15,6 +17,7 @@ namespace TCP_ChatWithDB
         public static User user = new();
         public static string serverResponse { get; set; }
         public static Boolean OnlineStatus { get; set; }
+        public static ChatMainWindow MainWindow { get; set; }
 
 
         public static void CreateUser(string name)
@@ -25,9 +28,9 @@ namespace TCP_ChatWithDB
         
         public static void CreateMessageObject(string msg)
         {
+            
             ChatMessageModel message = new ChatMessageModel();
             message.Text = msg;
-            
             message.user = user;
             message.DateTimeStamp = DateTime.Now.ToString();
             string msgJson = JsonSerializer.Serialize (message);
@@ -39,11 +42,28 @@ namespace TCP_ChatWithDB
             {
                 if (OnlineStatus == false) 
                 {
-                    SendUserStatus(false);
+                    SendUserStatus (false);
                     break; 
                 }
 
-                SendUserStatus(true);
+                SendUserStatus (true);
+                if (serverResponse.Length < 2) continue;
+                if (serverResponse.Substring(0,2)=="NM") //new messsage is received
+                {
+                    ChatMessageModel message = JsonSerializer.Deserialize<ChatMessageModel>(serverResponse.Substring(2));
+                    if (message.user.Name != user.Name)
+                    {
+                        System.Windows.Forms.ListBox ChatHistory = MainWindow.getChatHistory();
+                        ChatHistory.Invoke((MethodInvoker)delegate
+                        {
+                            ChatHistory.Items.Insert(0, message.user.Name + " " + message.DateTimeStamp + " " + message.Text);
+                        });
+                    }
+
+                }
+                serverResponse = "";
+                Thread.Sleep(1000);
+                //OnlineStatus = false;
             }
         }
         
@@ -51,13 +71,13 @@ namespace TCP_ChatWithDB
         {
             string msgJson = JsonSerializer.Serialize(user);
 
-            serverResponse = SendMessageAsync(online?"ON":"OF" + msgJson).Result;
+            serverResponse = SendMessageAsync((online?"ON":"OF") + msgJson).Result;
 
         }
 
         public static async Task<string> SendMessageAsync(string msg)
         {
-            string serverResponse = "";
+            //string serverResponse = "";
 
 
             TcpClient tcpClient = new TcpClient();
