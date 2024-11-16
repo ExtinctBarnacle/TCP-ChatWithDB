@@ -2,6 +2,7 @@
 using System.Text.Json;
 using System.Windows.Forms;
 using System.Threading;
+using ChatWithDBServer;
 
 namespace TCP_ChatWithDB
 {
@@ -16,14 +17,14 @@ namespace TCP_ChatWithDB
         {
             ChatClient.MainWindow = this;
             ChatClient.serverResponse = ChatClient.SendMessageAsync("CH").Result;
-            string[] history = JsonSerializer.Deserialize<string[]> (ChatClient.serverResponse);
+            ChatMessageModel[] history = JsonSerializer.Deserialize<ChatMessageModel[]> (ChatClient.serverResponse);
             // Array.Reverse (history);
             //ChatHistory.Items.AddRange(history);
             ChatHistory.Items.Clear();
             for (int i = history.Length - 1; i > -1; i--)
             {
-                if (history[i] == null) history[i] = "";
-               ChatHistory.Items.Add(history[i]);
+                //if (history[i] == null) history[i] = "";
+               ChatHistory.Items.Add(history[i].user.Name + " написал в " + history[i].DateTimeStamp + " сообщение \"" + history[i].Text + "\"");
             }
             ChatClient.OnlineStatus = false;
         }
@@ -42,8 +43,8 @@ namespace TCP_ChatWithDB
             if (e.KeyCode == Keys.Enter)
             {
                 //ChatClient.user.Name = txtUser.Text;
-                ChatClient.CreateMessageObject(MessageBox.Text);
-                ChatHistory.Items.Insert(0, txtUser.Text + " " + DateTime.Now.ToString() + " " + MessageBox.Text);
+                ChatMessageModel message = ChatClient.CreateMessageObject(MessageBox.Text);
+                ChatHistory.Items.Insert(0, message.user.Name + " написал в " + message.DateTimeStamp + " сообщение \"" + message.Text + "\"");
                 MessageBox.Text = string.Empty;
             }
         }

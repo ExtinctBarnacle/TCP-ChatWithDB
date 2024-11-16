@@ -26,7 +26,7 @@ namespace TCP_ChatWithDB
             user.Name = name;
         }
         
-        public static void CreateMessageObject(string msg)
+        public static ChatMessageModel CreateMessageObject(string msg)
         {
             
             ChatMessageModel message = new ChatMessageModel();
@@ -35,6 +35,7 @@ namespace TCP_ChatWithDB
             message.DateTimeStamp = DateTime.Now.ToString();
             string msgJson = JsonSerializer.Serialize (message);
             serverResponse = SendMessageAsync("UM" + msgJson).Result;
+            return message;
         }
         public static void DoOnlineLoop()
         {
@@ -56,7 +57,7 @@ namespace TCP_ChatWithDB
                         System.Windows.Forms.ListBox ChatHistory = MainWindow.getChatHistory();
                         ChatHistory.Invoke((MethodInvoker)delegate
                         {
-                            ChatHistory.Items.Insert(0, message.user.Name + " " + message.DateTimeStamp + " " + message.Text);
+                            ChatHistory.Items.Insert(0, message.user.Name + " написал в " + message.DateTimeStamp + " сообщение \"" + message.Text + "\"");
                         });
                     }
 
