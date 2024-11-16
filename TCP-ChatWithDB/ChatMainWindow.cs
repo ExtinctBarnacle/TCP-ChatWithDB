@@ -18,41 +18,25 @@ namespace TCP_ChatWithDB
             ChatClient.MainWindow = this;
             ChatClient.serverResponse = ChatClient.SendMessageAsync("CH").Result;
             ChatMessageModel[] history = JsonSerializer.Deserialize<ChatMessageModel[]> (ChatClient.serverResponse);
-            // Array.Reverse (history);
-            //ChatHistory.Items.AddRange(history);
             ChatHistory.Items.Clear();
             for (int i = history.Length - 1; i > -1; i--)
             {
-                //if (history[i] == null) history[i] = "";
-               ChatHistory.Items.Add(history[i].user.Name + " написал в " + history[i].DateTimeStamp + " сообщение \"" + history[i].Text + "\"");
+                ChatHistory.Items.Add(ChatClient.GetFormattedMessage(history[i]));
             }
             ChatClient.OnlineStatus = false;
         }
 
-        private void MessageBox_TextChanged(object sender, EventArgs e)
-        {
-        }
-
-        private void ChatHistory_SelectedIndexChanged(object sender, EventArgs e)
-        {
-
-        }
         private void MessageBox_KeyUp(object sender, System.Windows.Forms.KeyEventArgs e)
         {
             if (!ChatClient.OnlineStatus) return;
             if (e.KeyCode == Keys.Enter)
             {
-                //ChatClient.user.Name = txtUser.Text;
                 ChatMessageModel message = ChatClient.CreateMessageObject(MessageBox.Text);
-                ChatHistory.Items.Insert(0, message.user.Name + " написал в " + message.DateTimeStamp + " сообщение \"" + message.Text + "\"");
+                ChatHistory.Items.Insert(0, ChatClient.GetFormattedMessage(message));
                 MessageBox.Text = string.Empty;
             }
         }
 
-        private void txtUser_TextChanged(object sender, EventArgs e)
-        {
-            
-        }
         private void btnConnect_Click(object sender, EventArgs e)
         {
             if (!ChatClient.OnlineStatus)

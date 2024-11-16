@@ -57,7 +57,7 @@ namespace TCP_ChatWithDB
                         System.Windows.Forms.ListBox ChatHistory = MainWindow.getChatHistory();
                         ChatHistory.Invoke((MethodInvoker)delegate
                         {
-                            string msg = message.user.Name + " написал в " + message.DateTimeStamp + " сообщение \"" + message.Text + "\"";
+                            string msg = GetFormattedMessage(message);
                             if (!string.Equals(ChatHistory.Items[0], msg)) 
                             {
                                 ChatHistory.Items.Insert(0, msg); 
@@ -126,6 +126,10 @@ namespace TCP_ChatWithDB
             {
                 return null;
             }
+        }
+        public static string GetFormattedMessage(ChatMessageModel message)
+        {
+            return message.user.Name + " написал в " + message.DateTimeStamp + " сообщение \"" + message.Text + "\"";
         }
     }
 }
