@@ -57,7 +57,11 @@ namespace TCP_ChatWithDB
                         System.Windows.Forms.ListBox ChatHistory = MainWindow.getChatHistory();
                         ChatHistory.Invoke((MethodInvoker)delegate
                         {
-                            ChatHistory.Items.Insert(0, message.user.Name + " написал в " + message.DateTimeStamp + " сообщение \"" + message.Text + "\"");
+                            string msg = message.user.Name + " написал в " + message.DateTimeStamp + " сообщение \"" + message.Text + "\"";
+                            if (!string.Equals(ChatHistory.Items[0], msg)) 
+                            {
+                                ChatHistory.Items.Insert(0, msg); 
+                            }
                         });
                     }
 

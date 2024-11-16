@@ -60,14 +60,17 @@ namespace TCP_ChatWithDB
                 ChatClient.CreateUser (txtUser.Text);
                 txtUser.ReadOnly = true;
                 ChatClient.OnlineStatus = true;
-                btnConnect.Text = "ONLINE";
+                lblStatus.Text = "ONLINE";
+                btnConnect.Text = "Disconnect";
                 Thread thread = new Thread(ChatClient.DoOnlineLoop);
                 thread.Start();
             }
             else 
             {
                 ChatClient.OnlineStatus = false;
-                btnConnect.Text = "OFFLINE";
+                lblStatus.Text = "OFFLINE";
+                btnConnect.Text = "Connect";
+                txtUser.ReadOnly = false;
             }
         }
         public ListBox getChatHistory()
