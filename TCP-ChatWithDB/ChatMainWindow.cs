@@ -3,6 +3,8 @@ using System.Text.Json;
 using System.Windows.Forms;
 using System.Threading;
 using ChatWithDBServer;
+using static TCP_ChatWithDB.ChatClient;
+using System.Net;
 
 namespace TCP_ChatWithDB
 {
@@ -15,51 +17,65 @@ namespace TCP_ChatWithDB
 
         private void ChatMainWindow_Load(object sender, EventArgs e)
         {
-            ChatClient.MainWindow = this;
-            ChatClient.serverResponse = ChatClient.SendMessageAsync("CH").Result;
-            ChatMessageModel[] history = JsonSerializer.Deserialize<ChatMessageModel[]> (ChatClient.serverResponse);
-            ChatHistory.Items.Clear();
-            for (int i = history.Length - 1; i > -1; i--)
+            MainWindow = this;
+            ChatMessageModel[] chat = null;
+            ServerResponse = SendMessageAsync("CH").Result;
+            
+            try
             {
-                ChatHistory.Items.Add(ChatClient.GetFormattedMessage(history[i]));
+                chat = JsonSerializer.Deserialize<ChatMessageModel[]>(ServerResponse);
             }
-            ChatClient.OnlineStatus = false;
+            catch (System.Text.Json.JsonException ex)
+            {
+                ShowExceptionMessage(ex);
+            }
+            ChatHistory.Items.Clear();
+            for (int i = 0; i < chat.Length; i++)
+            {
+                ChatHistory.Items.Add(GetFormattedMessage(chat[i]));
+            }
+            OnlineStatus = false;
         }
 
         private void MessageBox_KeyUp(object sender, System.Windows.Forms.KeyEventArgs e)
         {
-            if (!ChatClient.OnlineStatus) return;
+            if (!OnlineStatus) return;
             if (e.KeyCode == Keys.Enter)
             {
-                ChatMessageModel message = ChatClient.CreateMessageObject(MessageBox.Text);
-                ChatHistory.Items.Insert(0, ChatClient.GetFormattedMessage(message));
+                ChatMessageModel message = CreateMessageObject(MessageBox.Text);
+                ChatHistory.Items.Add(GetFormattedMessage(message));
                 MessageBox.Text = string.Empty;
             }
         }
 
         private void btnConnect_Click(object sender, EventArgs e)
         {
-            if (!ChatClient.OnlineStatus)
+            if (!OnlineStatus)
             {
-                ChatClient.CreateUser (txtUser.Text);
+                CreateUser (txtUser.Text);
                 txtUser.ReadOnly = true;
-                ChatClient.OnlineStatus = true;
+                OnlineStatus = true;
                 lblStatus.Text = "ONLINE";
-                btnConnect.Text = "Disconnect";
-                Thread thread = new Thread(ChatClient.DoOnlineLoop);
+                btnConnect.Text = "Выйти из чата";
+                Thread thread = new Thread(DoOnlineLoop);
                 thread.Start();
             }
             else 
             {
-                ChatClient.OnlineStatus = false;
+                OnlineStatus = false;
                 lblStatus.Text = "OFFLINE";
-                btnConnect.Text = "Connect";
+                btnConnect.Text = "Войти в чат";
                 txtUser.ReadOnly = false;
             }
         }
         public ListBox getChatHistory()
         {
             return ChatHistory;
+        }
+
+        private void ChatMainWindow_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            OnlineStatus = false;
         }
     }
 }

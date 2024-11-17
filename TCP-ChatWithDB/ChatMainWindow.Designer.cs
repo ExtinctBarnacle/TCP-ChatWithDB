@@ -62,9 +62,9 @@
             this.label1.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
             this.label1.Location = new System.Drawing.Point(17, 13);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(91, 20);
+            this.label1.Size = new System.Drawing.Size(88, 20);
             this.label1.TabIndex = 2;
-            this.label1.Text = "Your name:";
+            this.label1.Text = "Ваше имя:";
             // 
             // txtUser
             // 
@@ -83,7 +83,7 @@
             this.btnConnect.Name = "btnConnect";
             this.btnConnect.Size = new System.Drawing.Size(233, 26);
             this.btnConnect.TabIndex = 4;
-            this.btnConnect.Text = "Connect to chat with this name";
+            this.btnConnect.Text = "Войти в чат";
             this.btnConnect.UseVisualStyleBackColor = true;
             this.btnConnect.Click += new System.EventHandler(this.btnConnect_Click);
             // 
@@ -112,6 +112,7 @@
             this.Controls.Add(this.MessageBox);
             this.Name = "ChatMainWindow";
             this.Text = "Chat";
+            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.ChatMainWindow_FormClosed);
             this.Load += new System.EventHandler(this.ChatMainWindow_Load);
             this.ResumeLayout(false);
             this.PerformLayout();
