@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Text.Json;
 using System.Windows.Forms;
 using System.Threading;
 using ChatWithDBServer;
@@ -14,28 +13,16 @@ namespace TCP_ChatWithDB
             InitializeComponent();
         }
 
+        // загрузка формы - запрос истории чата у сервера, добавление истории в окно чата
         private void ChatMainWindow_Load(object sender, EventArgs e)
         {
             MainWindow = this;
-            ChatMessageModel[] chat = null;
             ServerResponse = SendMessageAsync("CH").Result;
-            
-            try
-            {
-                chat = JsonSerializer.Deserialize<ChatMessageModel[]>(ServerResponse);
-            }
-            catch (System.Text.Json.JsonException ex)
-            {
-                ShowExceptionMessage(ex);
-            }
-            ChatHistory.Items.Clear();
-            for (int i = 0; i < chat.Length; i++)
-            {
-                ChatHistory.Items.Add(GetFormattedMessage(chat[i]));
-            }
+            IsHistoryLoaded = LoadChatHistory();
             OnlineStatus = false;
         }
 
+        // событие нажатия клавиши Enter в поле сообщения - добавляет новое сообщение в окно чата и отправляет его на сервер
         private void MessageBox_KeyUp(object sender, System.Windows.Forms.KeyEventArgs e)
         {
             if (!OnlineStatus) return;
@@ -46,17 +33,26 @@ namespace TCP_ChatWithDB
                 MessageBox.Text = string.Empty;
             }
         }
-        private void btnConnect_Click(object sender, EventArgs e)
+        //событие клика по кнопке BtnConnect - войти в чат / выйти из чата
+        private void BtnConnect_Click(object sender, EventArgs e)
         {
             if (!OnlineStatus)
             {
-                CreateUser (txtUser.Text);
-                txtUser.ReadOnly = true;
-                OnlineStatus = true;
-                lblStatus.Text = "ONLINE";
-                btnConnect.Text = "Выйти из чата";
-                Thread thread = new Thread(DoOnlineLoop);
-                thread.Start();
+                //SendUserStatus(true);
+                //if (ServerResponse.Length > 0)
+                {
+                    CreateUser(txtUser.Text);
+                    txtUser.ReadOnly = true;
+                    if (!IsHistoryLoaded)
+                    {
+                        IsHistoryLoaded = LoadChatHistory();
+                    }
+                    OnlineStatus = true;
+                    lblStatus.Text = "Подключение...";
+                    btnConnect.Text = "Выйти из чата";
+                    Thread thread = new Thread(DoOnlineLoop);
+                    thread.Start();
+                } 
             }
             else 
             {
@@ -66,11 +62,19 @@ namespace TCP_ChatWithDB
                 txtUser.ReadOnly = false;
             }
         }
-        public ListBox getChatHistory()
+        // возвращает объект окна чата
+        public ListBox GetChatHistory()
         {
             return ChatHistory;
         }
 
+        // возвращает объект надписи "Онлайн / Офлайн"
+        public Label GetStatusLabel()
+        {
+            return lblStatus;
+        }
+
+        // при закрытии формы прерывает главный цикл программы
         private void ChatMainWindow_FormClosed(object sender, FormClosedEventArgs e)
         {
             OnlineStatus = false;
