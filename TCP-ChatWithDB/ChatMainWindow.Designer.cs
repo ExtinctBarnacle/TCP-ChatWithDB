@@ -50,9 +50,11 @@
             // 
             this.ChatHistory.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
             this.ChatHistory.FormattingEnabled = true;
+            this.ChatHistory.HorizontalScrollbar = true;
             this.ChatHistory.ItemHeight = 20;
             this.ChatHistory.Location = new System.Drawing.Point(12, 45);
             this.ChatHistory.Name = "ChatHistory";
+            this.ChatHistory.ScrollAlwaysVisible = true;
             this.ChatHistory.Size = new System.Drawing.Size(664, 484);
             this.ChatHistory.TabIndex = 1;
             // 

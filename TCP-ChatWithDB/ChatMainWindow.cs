@@ -3,6 +3,7 @@ using System.Windows.Forms;
 using System.Threading;
 using ChatWithDBServer;
 using static TCP_ChatWithDB.ChatClient;
+using System.Text.Json;
 
 namespace TCP_ChatWithDB
 {
@@ -16,7 +17,7 @@ namespace TCP_ChatWithDB
         // загрузка формы - запрос истории чата у сервера, добавление истории в окно чата
         private void ChatMainWindow_Load(object sender, EventArgs e)
         {
-            MainWindow = this;
+            //MainWindow = this;
             ServerResponse = SendMessageAsync("CH").Result;
             IsHistoryLoaded = LoadChatHistory();
             OnlineStatus = false;
@@ -62,22 +63,54 @@ namespace TCP_ChatWithDB
                 txtUser.ReadOnly = false;
             }
         }
-        // возвращает объект окна чата
-        public ListBox GetChatHistory()
-        {
-            return ChatHistory;
-        }
-
-        // возвращает объект надписи "Онлайн / Офлайн"
-        public Label GetStatusLabel()
-        {
-            return lblStatus;
-        }
 
         // при закрытии формы прерывает главный цикл программы
         private void ChatMainWindow_FormClosed(object sender, FormClosedEventArgs e)
         {
             OnlineStatus = false;
+        }
+        // метод для установки надписи онлайн / офлайн в форме
+        public void SetStatusLabels(Boolean online)
+        {
+            if (online) lblStatus.Text = "ONLINE";
+            else lblStatus.Text = "OFFLINE";
+        }
+
+        /* 
+        ** метод добавляет новое сообщение пользователя в окно чата
+        */
+        public void AddNewMessageToChatHistory(ChatMessageModel message)
+        {
+            string formattedMessage = GetFormattedMessage(message);
+            if (!string.Equals(ChatHistory.Items[0], formattedMessage))
+            {
+                ChatHistory.Items.Add(formattedMessage);
+            }
+        }
+        // загрузка истории чата, если сервер доступен
+        public Boolean LoadChatHistory()
+        {
+            ChatMessageModel[] chat = null;
+            try
+            {
+                chat = JsonSerializer.Deserialize<ChatMessageModel[]>(ServerResponse);
+            }
+            catch (System.Text.Json.JsonException ex)
+            {
+                ShowExceptionMessage(ex);
+                return false;
+            }
+            if (chat != null)
+            {
+                ChatHistory.Items.Clear();
+                for (int i = 0; i < chat.Length; i++)
+                {
+                    ChatHistory.Items.Add(GetFormattedMessage(chat[i]));
+                    ChatHistory.SelectedIndex = ChatHistory.Items.Count - 1;
+                }
+                return true;
+            }
+            return false;
         }
     }
 }

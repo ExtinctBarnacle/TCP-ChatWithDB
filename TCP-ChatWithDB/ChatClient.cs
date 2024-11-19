@@ -5,97 +5,132 @@ using System.Text;
 using ChatWithDBServer;
 using System.Text.Json;
 using System.Net;
-using System.Linq;
 using System.Threading.Tasks;
 using System.Threading;
 using System.Windows.Forms;
 
 namespace TCP_ChatWithDB
 {
-  // главный класс клиента чата - отправляет запросы серверу, принимает ответы сервера, уведомляет об ошибках
+    // главный класс клиента чата - отправляет запросы серверу, принимает ответы сервера, уведомляет об ошибках
     public class ChatClient
     {
         // объект пользователя (имя, IP)
-        public static User User = new();
-
+        public static User User { get; set; }
         // ответ сервера: первые 2 символа - код ответа, далее тело запроса в JSON
         public static string ServerResponse { get; set; }
-        
         // статус клинета - онлайн (получает корректные ответы на запросы сервера) или офлайн (сервер недоступен или пользователь вышел из чата)
         public static Boolean OnlineStatus { get; set; }
-
         //было ли показано сообщение о последнем сбое (чтобы сообщение не выпадало много раз)
-        public static Boolean ExceptionMessageShown = false;
-
+        public static Boolean ExceptionMessageShown { get; set; }
         // загружена ли история переписки из БД?
         public static Boolean IsHistoryLoaded { get; set; }
-        
-        // ссылка на форму для доступа к элементам
-        public static ChatMainWindow MainWindow { get; set; }
-
         // пауза в работе главного цикла клиента
-        public static int PauseForOnlineLoop = 1000;
+        public static int PauseForOnlineLoop { get; set; }
+
+        public static List<string> ChatHistory { get; set; }
+
+        static ChatClient() {
+            User = new User();
+            ServerResponse = string.Empty;
+            OnlineStatus = false;
+            ExceptionMessageShown  = false;
+            IsHistoryLoaded = false;
+            PauseForOnlineLoop = 1000;
+            List<string> ChatHistory = new List<string>();
+        }
 
         // создаёт объект пользователя
-        public static void CreateUser (string name)
+        public static void CreateUser(string name)
         {
             User.IP = GetEthernetIPAddress();
             User.Name = name;
         }
-        
+
         // метод создаёт объект сообщения, которое отправляется на сервер
-        public static ChatMessageModel CreateMessageObject (string msg)
+        public static ChatMessageModel CreateMessageObject(string message)
         {
-            ChatMessageModel message = new ChatMessageModel();
-            message.Text = msg;
-            message.User = User;
-            message.DateTimeStamp = DateTime.Now.ToString();
-            string msgJson = JsonSerializer.Serialize (message);
+            ChatMessageModel messageModel = new ChatMessageModel();
+            messageModel.Text = message;
+            messageModel.User = User;
+            messageModel.DateTimeStamp = DateTime.Now.ToString();
+            string msgJson = JsonSerializer.Serialize(messageModel);
             ServerResponse = SendMessageAsync("UM" + msgJson).Result;
-            return message;
+            return messageModel;
         }
-        
+
         // главный цикл, в котором клиент отправляет статус серверу и принимает ответы сервера
         public static void DoOnlineLoop()
         {
-            while (true)
+            while (OnlineStatus)
             {
-                if (!OnlineStatus) 
-                {
-                    SendUserStatus (false);
-                    //SetStatusLabel(OnlineStatus);
-                    break; 
-                }
-                SendUserStatus (true);
+                SendUserStatus(true);
                 // некорректное сообщение сервера
                 if (ServerResponse.Length < 2) continue;
-                
+
                 // если получено новое сообщение в чате (NM - new message)
-                if (ServerResponse.Substring(0,2)=="NM") 
+                if (ServerResponse.Substring(0, 2) == "NM")
                 {
                     ChatMessageModel message = JsonSerializer.Deserialize<ChatMessageModel>(ServerResponse.Substring(2));
                     if (message.User.Name != User.Name)
                     {
-                        AddNewMessageToChatHistory (message);
+                        AddNewMessageToChatHistory(message);
                     }
                 }
                 // очистка ответа сервера
                 ServerResponse = string.Empty;
-                SetStatusLabel(OnlineStatus);
+                //SetStatusLabel(OnlineStatus);
                 // пауза в работе цикла
                 Thread.Sleep(PauseForOnlineLoop);
             }
+            SendUserStatus(false);
+            //SetStatusLabel(OnlineStatus);
         }
-        
+
+        /* 
+       ** метод добавляет новое сообщение пользователя в окно чата
+       */
+        public static void AddNewMessageToChatHistory (ChatMessageModel message)
+        {
+            string formattedMessage = GetFormattedMessage (message);
+            if (!(ChatHistory.Contains (formattedMessage)))
+            {
+                ChatHistory.Add(formattedMessage);
+            }
+        }
+        // загрузка истории чата, если сервер доступен
+        public static Boolean LoadChatHistory()
+        {
+            ChatMessageModel[] chat = null;
+            try
+            {
+                chat = JsonSerializer.Deserialize<ChatMessageModel[]>(ServerResponse);
+            }
+            catch (System.Text.Json.JsonException ex)
+            {
+                ShowExceptionMessage(ex);
+                return false;
+            }
+            if (chat != null)
+            {
+                ChatHistory.Clear();
+                for (int i = 0; i < chat.Length; i++)
+                {
+                    ChatHistory.Add(GetFormattedMessage(chat[i]));
+                }
+                return true;
+            }
+            return false;
+        }
+
         // сообщает серверу статус клиента - онлайн или офлайн
-        public static void SendUserStatus (Boolean online)
+        public static void SendUserStatus(Boolean online)
         {
             string msgJson = JsonSerializer.Serialize(User);
             ServerResponse = SendMessageAsync((online ? "ON" : "OF") + msgJson).Result;
         }
 
         // асинхронный метод для отправки запросов серверу
-        public static async Task<string> SendMessageAsync (string msg)
+        public static async Task<string> SendMessageAsync(string msg)
         {
             string serverIP = GetEthernetIPAddress();
             int serverPort = 8080;
@@ -138,7 +173,7 @@ namespace TCP_ChatWithDB
             }
         }
 
-        // возвращает IP-адрес в локальной сети
+        // возвращает внутренний IP-адрес компьютера (сервер должен быть запущен на нём)
         public static string GetEthernetIPAddress()
         {
             using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
@@ -154,11 +189,11 @@ namespace TCP_ChatWithDB
         public static string GetFormattedMessage(ChatMessageModel message)
         {
             DateTime dateTime = DateTime.Parse(message.DateTimeStamp);
-            return message.User.Name + "\t\t" + dateTime.Hour + ":"+ dateTime.Minute + "\t\t" + message.Text;
+            return message.User.Name + "\t\t" + dateTime.Hour + ":" + dateTime.Minute + "\t\t" + message.Text;
         }
 
         // сообщение об ошибке доступа к серверу
-        public static void ShowExceptionMessage (Exception e)
+        public static void ShowExceptionMessage(Exception e)
         {
             if (!ExceptionMessageShown)
             {
@@ -166,72 +201,9 @@ namespace TCP_ChatWithDB
                 MessageBox.Show("Сервер не отвечает. Причина: \n" + e.StackTrace, "Чат");
                 // чтобы сообщение об ошибке не выскакивало много раз
                 ExceptionMessageShown = true;
-                SetStatusLabel(OnlineStatus);
+                //SetStatusLabel(OnlineStatus);
             }
         }
 
-        // метод для установки надписи онлайн / офлайн в форме
-        public static void SetStatusLabel (Boolean online)
-        {
-            System.Windows.Forms.Label statusLabel = MainWindow.GetStatusLabel();
-
-            // чтобы работать с элементом формы в другом потоке
-            statusLabel.Invoke((MethodInvoker)delegate
-            {
-                if (online) statusLabel.Text = "ONLINE";
-                else statusLabel.Text = "OFFLINE";
-            });
-        }
-
-        /* 
-        ** метод добавляет новое сообщение пользователя в окно чата
-        */
-        public static void AddNewMessageToChatHistory(ChatMessageModel message)
-        {
-
-            System.Windows.Forms.ListBox chatHistory = GetChatWindow();
-            // чтобы работать с элементом формы в другом потоке
-            chatHistory.Invoke((MethodInvoker)delegate
-            {
-                string formattedMessage = GetFormattedMessage(message);
-                if (!string.Equals(chatHistory.Items[0], formattedMessage))
-                {
-                    chatHistory.Items.Add(formattedMessage);
-                }
-            });
-        }
-        // загрузка истории чата, если сервер доступен
-        public static Boolean LoadChatHistory()
-        {
-            ChatMessageModel[] chat = null;
-            try
-            {
-                chat = JsonSerializer.Deserialize<ChatMessageModel[]>(ServerResponse);
-            }
-            catch (System.Text.Json.JsonException ex)
-            {
-                ShowExceptionMessage(ex);
-                return false;
-            }
-            
-            if (chat != null)
-            {
-                System.Windows.Forms.ListBox ChatHistory = GetChatWindow();
-                ChatHistory.Items.Clear();
-                for (int i = 0; i < chat.Length; i++)
-                {
-                    ChatHistory.Items.Add(GetFormattedMessage(chat[i]));
-                    ChatHistory.SelectedIndex = ChatHistory.Items.Count - 1;    
-                }
-                return true;
-            }
-            return false;
-        }
-
-        // так как из этого класса нельзя получить доступ к объектам формы, в форме есть метод getChatHistory для получения ссылки на объект с историей чата
-        public static System.Windows.Forms.ListBox GetChatWindow()
-        {
-            return MainWindow.GetChatHistory();
-        }
-    }
+    }   
 }
