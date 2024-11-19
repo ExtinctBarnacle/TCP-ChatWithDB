@@ -4,7 +4,6 @@ using System.Windows.Forms;
 using System.Threading;
 using ChatWithDBServer;
 using static TCP_ChatWithDB.ChatClient;
-using System.Net;
 
 namespace TCP_ChatWithDB
 {
@@ -47,7 +46,6 @@ namespace TCP_ChatWithDB
                 MessageBox.Text = string.Empty;
             }
         }
-
         private void btnConnect_Click(object sender, EventArgs e)
         {
             if (!OnlineStatus)

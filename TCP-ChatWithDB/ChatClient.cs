@@ -72,7 +72,6 @@ namespace TCP_ChatWithDB
 
         public static async Task<string> SendMessageAsync (string msg)
         {
-            // TODO how to get such IP for any system?
             string serverIP = GetEthernetIPAddress();
             int serverPort = 8080;
             try
