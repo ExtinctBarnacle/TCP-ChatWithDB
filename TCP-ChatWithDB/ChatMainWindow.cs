@@ -3,7 +3,6 @@ using System.Windows.Forms;
 using System.Threading;
 using ChatWithDBServer;
 using static TCP_ChatWithDB.ChatClient;
-using System.Text.Json;
 
 namespace TCP_ChatWithDB
 {
@@ -11,7 +10,11 @@ namespace TCP_ChatWithDB
     {
         // счётчик сообщений в чате, чтобы цикл формы мог проверить количество новых сообщений
         private int ChatHistoryMessagesCount = 0;
-        
+
+        private int OldChatHistoryMessagesCount = 0;
+
+        static object lockObject = new object();
+
         public ChatMainWindow()
         {
             InitializeComponent();
@@ -29,7 +32,7 @@ namespace TCP_ChatWithDB
         // событие нажатия клавиши Enter в поле сообщения - добавляет новое сообщение в окно чата и отправляет его на сервер
         private void MessageBox_KeyUp(object sender, System.Windows.Forms.KeyEventArgs e)
         {
-            if (!OnlineStatus) return;
+            if (!OnlineStatus || MessageBox.Text == string.Empty) return;
             if (e.KeyCode == Keys.Enter)
             {
                 ChatMessageModel message = CreateMessageObject(MessageBox.Text);
@@ -47,16 +50,16 @@ namespace TCP_ChatWithDB
                  serverResponse = SendUserStatus(!OnlineStatus);
                  if (serverResponse.Length > 0)
                   {
-                        txtUser.ReadOnly = true;
-                        if (!IsHistoryLoaded)
-                        {
-                            IsHistoryLoaded = LoadChatHistory();
-                        }
-                        OnlineStatus = !OnlineStatus;
-                        Thread chatClientLoop = new Thread(DoOnlineLoop);
-                        chatClientLoop.Start();
-                        Thread mainWindowLoop = new Thread(DoMainWindowLoop);
-                        mainWindowLoop.Start();
+                    txtUser.ReadOnly = true;
+                    if (!IsHistoryLoaded)
+                    {
+                        IsHistoryLoaded = LoadChatHistory();
+                    }
+                    OnlineStatus = !OnlineStatus;
+                    Thread chatClientLoop = new Thread(DoOnlineLoop);
+                    chatClientLoop.Start();
+                    Thread mainWindowLoop = new Thread(DoMainWindowLoop);
+                    mainWindowLoop.Start();
                 }
             }
             else 
@@ -72,18 +75,22 @@ namespace TCP_ChatWithDB
         private void DoMainWindowLoop()
         {
             // количество новых сообщений от других клиентов, не добавленных в окно чата
-            int difference;
-            if (ChatHistoryMessagesCount < ChatClient.ChatHistory.Count)
+            while (OnlineStatus)
             {
-                difference = ChatHistoryMessagesCount - ChatHistoryMessagesCount;
-                for (int i = ChatHistoryMessagesCount + 1; i < ChatHistoryMessagesCount + difference; i++)
+                lock (lockObject)
                 {
-                    AddNewMessageToChatHistory(ChatClient.ChatHistory[i]);
+                    ChatHistoryMessagesCount = ChatClient.ChatHistory.Count;
+                    string name = ChatClient.ChatHistory[ChatClient.ChatHistory.Count - 1];
+                    name = name.Substring(0, name.IndexOf('t') - 1);
+                    if (ChatHistoryMessagesCount > OldChatHistoryMessagesCount && !string.Equals(name, ChatClient.User.Name))
+                    {
+                        AddNewMessageToChatHistory(ChatClient.ChatHistory[ChatHistoryMessagesCount - 1]);
+                    }
                 }
             }
         }
 
-        // при закрытии формы прерывает главный цикл программы
+        // при закрытии формы прерывает циклы, выполняемые в других потоках
         private void ChatMainWindow_FormClosed(object sender, FormClosedEventArgs e)
         {
             OnlineStatus = false;
@@ -103,14 +110,17 @@ namespace TCP_ChatWithDB
             }
         }
 
-        /* 
-        ** метод добавляет новое сообщение пользователя в окно чата
-        */
+        // метод добавляет новое сообщение пользователя в окно чата
         private void AddNewMessageToChatHistory(string message)
         {
-            ChatHistory.Items.Add(message);
-            ChatHistory.SelectedIndex = ChatHistory.Items.Count - 1;
-            ChatHistoryMessagesCount++;
+                ChatHistory.Invoke((MethodInvoker) delegate
+                {
+                    ChatHistory.Items.Add(message);
+                    ChatHistory.SelectedIndex = ChatHistory.Items.Count - 1;
+                    OldChatHistoryMessagesCount = ChatHistoryMessagesCount;
+                    Interlocked.Increment(ref ChatHistoryMessagesCount);
+                    //ChatHistoryMessagesCount++;
+                });
         }
         // загрузка истории чата, если сервер доступен
         private Boolean LoadChatHistory()
@@ -123,13 +133,14 @@ namespace TCP_ChatWithDB
                 {
                         ChatHistory.Items.Add(ChatClient.ChatHistory[i]);
                 }
-                ChatHistoryMessagesCount = ChatClient.ChatHistory.Count;
+                ChatHistoryMessagesCount = OldChatHistoryMessagesCount = ChatClient.ChatHistory.Count;
                 ChatHistory.SelectedIndex = ChatHistory.Items.Count - 1;
                 return true;
             }
             return false;
         }
 
+        // меняем имя пользователя при вводе нового в текстовом поле
         private void txtUser_TextChanged(object sender, EventArgs e)
         {
             ChatClient.User.Name = txtUser.Text;
