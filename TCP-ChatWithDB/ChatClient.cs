@@ -36,11 +36,11 @@ namespace TCP_ChatWithDB
             ExceptionMessageShown  = false;
             IsHistoryLoaded = false;
             PauseForOnlineLoop = 1000;
-            List<string> ChatHistory = new List<string>();
+            ChatHistory = new List<string>();
         }
 
         // создаёт объект пользователя
-        public static void CreateUser(string name)
+        public static void CreateUser (string name)
         {
             User.IP = GetEthernetIPAddress();
             User.Name = name;
@@ -63,9 +63,11 @@ namespace TCP_ChatWithDB
         {
             while (OnlineStatus)
             {
-                SendUserStatus(true);
+                SendUserStatus (true);
                 // некорректное сообщение сервера
                 if (ServerResponse.Length < 2) continue;
+
+                if (ServerResponse.Substring(0, 2) == "ON") continue;
 
                 // если получено новое сообщение в чате (NM - new message)
                 if (ServerResponse.Substring(0, 2) == "NM")
@@ -73,16 +75,16 @@ namespace TCP_ChatWithDB
                     ChatMessageModel message = JsonSerializer.Deserialize<ChatMessageModel>(ServerResponse.Substring(2));
                     if (message.User.Name != User.Name)
                     {
-                        AddNewMessageToChatHistory(message);
+                        AddNewMessageToChatHistory (message);
                     }
                 }
                 // очистка ответа сервера
                 ServerResponse = string.Empty;
                 //SetStatusLabel(OnlineStatus);
                 // пауза в работе цикла
-                Thread.Sleep(PauseForOnlineLoop);
+                Thread.Sleep (PauseForOnlineLoop);
             }
-            SendUserStatus(false);
+            SendUserStatus (false);
             //SetStatusLabel(OnlineStatus);
         }
 
@@ -92,9 +94,9 @@ namespace TCP_ChatWithDB
         public static void AddNewMessageToChatHistory (ChatMessageModel message)
         {
             string formattedMessage = GetFormattedMessage (message);
-            if (!(ChatHistory.Contains (formattedMessage)))
+            if (!ChatHistory.Contains (formattedMessage))
             {
-                ChatHistory.Add(formattedMessage);
+                ChatHistory.Add (formattedMessage);
             }
         }
         // загрузка истории чата, если сервер доступен
@@ -115,7 +117,7 @@ namespace TCP_ChatWithDB
                 ChatHistory.Clear();
                 for (int i = 0; i < chat.Length; i++)
                 {
-                    ChatHistory.Add(GetFormattedMessage(chat[i]));
+                    ChatHistory.Add (GetFormattedMessage(chat[i]));
                 }
                 return true;
             }
@@ -123,10 +125,10 @@ namespace TCP_ChatWithDB
         }
 
         // сообщает серверу статус клиента - онлайн или офлайн
-        public static void SendUserStatus(Boolean online)
+        public static string SendUserStatus (Boolean online)
         {
             string msgJson = JsonSerializer.Serialize(User);
-            ServerResponse = SendMessageAsync((online ? "ON" : "OF") + msgJson).Result;
+            return SendMessageAsync ((online ? "ON" : "OF") + msgJson).Result;
         }
 
         // асинхронный метод для отправки запросов серверу

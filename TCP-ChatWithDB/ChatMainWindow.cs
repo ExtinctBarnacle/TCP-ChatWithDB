@@ -9,6 +9,9 @@ namespace TCP_ChatWithDB
 {
     public partial class ChatMainWindow : Form
     {
+        // счётчик сообщений в чате, чтобы цикл формы мог проверить количество новых сообщений
+        private int ChatHistoryMessagesCount = 0;
+        
         public ChatMainWindow()
         {
             InitializeComponent();
@@ -17,9 +20,9 @@ namespace TCP_ChatWithDB
         // загрузка формы - запрос истории чата у сервера, добавление истории в окно чата
         private void ChatMainWindow_Load(object sender, EventArgs e)
         {
-            //MainWindow = this;
             ServerResponse = SendMessageAsync("CH").Result;
             IsHistoryLoaded = LoadChatHistory();
+            CreateUser(txtUser.Text == string.Empty ? "test" : txtUser.Text);
             OnlineStatus = false;
         }
 
@@ -30,37 +33,53 @@ namespace TCP_ChatWithDB
             if (e.KeyCode == Keys.Enter)
             {
                 ChatMessageModel message = CreateMessageObject(MessageBox.Text);
-                ChatHistory.Items.Add(GetFormattedMessage(message));
+                ChatClient.AddNewMessageToChatHistory(message);
+                AddNewMessageToChatHistory(ChatClient.ChatHistory[ChatClient.ChatHistory.Count - 1]);
                 MessageBox.Text = string.Empty;
             }
         }
         //событие клика по кнопке BtnConnect - войти в чат / выйти из чата
         private void BtnConnect_Click(object sender, EventArgs e)
         {
+            string serverResponse;
             if (!OnlineStatus)
             {
-                //SendUserStatus(true);
-                //if (ServerResponse.Length > 0)
-                {
-                    CreateUser(txtUser.Text);
-                    txtUser.ReadOnly = true;
-                    if (!IsHistoryLoaded)
-                    {
-                        IsHistoryLoaded = LoadChatHistory();
-                    }
-                    OnlineStatus = true;
-                    lblStatus.Text = "Подключение...";
-                    btnConnect.Text = "Выйти из чата";
-                    Thread thread = new Thread(DoOnlineLoop);
-                    thread.Start();
-                } 
+                 serverResponse = SendUserStatus(!OnlineStatus);
+                 if (serverResponse.Length > 0)
+                  {
+                        txtUser.ReadOnly = true;
+                        if (!IsHistoryLoaded)
+                        {
+                            IsHistoryLoaded = LoadChatHistory();
+                        }
+                        OnlineStatus = !OnlineStatus;
+                        Thread chatClientLoop = new Thread(DoOnlineLoop);
+                        chatClientLoop.Start();
+                        Thread mainWindowLoop = new Thread(DoMainWindowLoop);
+                        mainWindowLoop.Start();
+                }
             }
             else 
             {
                 OnlineStatus = false;
-                lblStatus.Text = "OFFLINE";
-                btnConnect.Text = "Войти в чат";
+                ExceptionMessageShown = false;
                 txtUser.ReadOnly = false;
+            }
+            SetStatusLabels(OnlineStatus);
+        }
+
+        // главный цикл формы для проверки количества сообщений в чате (класс ChatClient не уведомляет форму о событиях и связан только с сервером)
+        private void DoMainWindowLoop()
+        {
+            // количество новых сообщений от других клиентов, не добавленных в окно чата
+            int difference;
+            if (ChatHistoryMessagesCount < ChatClient.ChatHistory.Count)
+            {
+                difference = ChatHistoryMessagesCount - ChatHistoryMessagesCount;
+                for (int i = ChatHistoryMessagesCount + 1; i < ChatHistoryMessagesCount + difference; i++)
+                {
+                    AddNewMessageToChatHistory(ChatClient.ChatHistory[i]);
+                }
             }
         }
 
@@ -70,47 +89,50 @@ namespace TCP_ChatWithDB
             OnlineStatus = false;
         }
         // метод для установки надписи онлайн / офлайн в форме
-        public void SetStatusLabels(Boolean online)
+        private void SetStatusLabels(Boolean online)
         {
-            if (online) lblStatus.Text = "ONLINE";
-            else lblStatus.Text = "OFFLINE";
+            if (online)
+            {
+                lblStatus.Text = "ONLINE";
+                btnConnect.Text = "Выйти из чата";
+            }
+            else 
+            {
+                lblStatus.Text = "OFFLINE";
+                btnConnect.Text = "Войти в чат";
+            }
         }
 
         /* 
         ** метод добавляет новое сообщение пользователя в окно чата
         */
-        public void AddNewMessageToChatHistory(ChatMessageModel message)
+        private void AddNewMessageToChatHistory(string message)
         {
-            string formattedMessage = GetFormattedMessage(message);
-            if (!string.Equals(ChatHistory.Items[0], formattedMessage))
-            {
-                ChatHistory.Items.Add(formattedMessage);
-            }
+            ChatHistory.Items.Add(message);
+            ChatHistory.SelectedIndex = ChatHistory.Items.Count - 1;
+            ChatHistoryMessagesCount++;
         }
         // загрузка истории чата, если сервер доступен
-        public Boolean LoadChatHistory()
+        private Boolean LoadChatHistory()
         {
-            ChatMessageModel[] chat = null;
-            try
-            {
-                chat = JsonSerializer.Deserialize<ChatMessageModel[]>(ServerResponse);
-            }
-            catch (System.Text.Json.JsonException ex)
-            {
-                ShowExceptionMessage(ex);
-                return false;
-            }
-            if (chat != null)
+            IsHistoryLoaded = ChatClient.LoadChatHistory();
+            if (IsHistoryLoaded)
             {
                 ChatHistory.Items.Clear();
-                for (int i = 0; i < chat.Length; i++)
+                for (int i = 0; i < ChatClient.ChatHistory.Count; i++)
                 {
-                    ChatHistory.Items.Add(GetFormattedMessage(chat[i]));
-                    ChatHistory.SelectedIndex = ChatHistory.Items.Count - 1;
+                        ChatHistory.Items.Add(ChatClient.ChatHistory[i]);
                 }
+                ChatHistoryMessagesCount = ChatClient.ChatHistory.Count;
+                ChatHistory.SelectedIndex = ChatHistory.Items.Count - 1;
                 return true;
             }
             return false;
+        }
+
+        private void txtUser_TextChanged(object sender, EventArgs e)
+        {
+            ChatClient.User.Name = txtUser.Text;
         }
     }
 }

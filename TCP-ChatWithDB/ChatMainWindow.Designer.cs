@@ -75,8 +75,9 @@
             this.txtUser.Name = "txtUser";
             this.txtUser.Size = new System.Drawing.Size(138, 26);
             this.txtUser.TabIndex = 3;
-            this.txtUser.Text = "Uelish";
+            this.txtUser.Text = "test";
             this.txtUser.TextAlign = System.Windows.Forms.HorizontalAlignment.Center;
+            this.txtUser.TextChanged += new System.EventHandler(this.txtUser_TextChanged);
             // 
             // btnConnect
             // 
