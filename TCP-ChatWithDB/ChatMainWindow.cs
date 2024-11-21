@@ -79,11 +79,14 @@ namespace TCP_ChatWithDB
                 lock (lockObject)
                 {
                     ChatHistoryMessagesCount = ChatClient.ChatHistory.Count;
-                if (ChatHistoryMessagesCount > OldChatHistoryMessagesCount && ChatClient.ChatHistory[ChatHistoryMessagesCount - 1] != null && ChatClient.ChatHistory[ChatHistoryMessagesCount - 1].User != null) 
+                // если количество сообщений изменилось и в последнем сообщении объекты сообщения и пользователя существуют
+                    if (ChatHistoryMessagesCount > OldChatHistoryMessagesCount && ChatClient.ChatHistory[ChatHistoryMessagesCount - 1] != null && ChatClient.ChatHistory[ChatHistoryMessagesCount - 1].User != null) 
                     {
-                    if (!string.Equals(ChatClient.ChatHistory[ChatHistoryMessagesCount - 1].User.Name, ChatClient.User.Name))
+                    // если сообщение пришло от другого клиента
+                        if (!string.Equals(ChatClient.ChatHistory[ChatHistoryMessagesCount - 1].User.Name, ChatClient.User.Name))
                     {
-                        AddNewMessageToChatHistory(GetFormattedMessage(ChatClient.ChatHistory[ChatHistoryMessagesCount - 1]));
+                        // добавляем в окно чата новое сообщение от другого клиента
+                            AddNewMessageToChatHistory(GetFormattedMessage(ChatClient.ChatHistory[ChatHistoryMessagesCount - 1]));
                     } 
                 }
                 }
