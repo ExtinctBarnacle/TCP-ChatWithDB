@@ -15,19 +15,21 @@ namespace TCP_ChatWithDB
     public class ChatClient
     {
         // объект пользователя (имя, IP)
-        public static User User { get; set; }
+        protected internal static User User { get; set; }
         // ответ сервера: первые 2 символа - код ответа, далее тело запроса в JSON
-        public static string ServerResponse { get; set; }
+        protected internal static string ServerResponse { get; set; }
         // статус клинета - онлайн (получает корректные ответы на запросы сервера) или офлайн (сервер недоступен или пользователь вышел из чата)
-        public static Boolean OnlineStatus { get; set; }
+        protected internal static Boolean OnlineStatus { get; set; }
         //было ли показано сообщение о последнем сбое (чтобы сообщение не выпадало много раз)
-        public static Boolean ExceptionMessageShown { get; set; }
+        protected internal static Boolean ExceptionMessageShown { get; set; }
         // загружена ли история переписки из БД?
-        public static Boolean IsHistoryLoaded { get; set; }
+        protected internal static Boolean IsHistoryLoaded { get; set; }
         // пауза в работе главного цикла клиента
-        public static int PauseForOnlineLoop { get; set; }
-
-        public static List<string> ChatHistory { get; set; }
+        protected internal static int PauseForOnlineLoop { get; set; }
+        //история чата в виде списка классов сообщений
+        protected internal static List<ChatMessageModel> ChatHistory { get; set; }
+        // для блокировки доступа в метод AddNewMessageToChatHistory
+        static object lockObject = new object();
 
         static ChatClient() {
             User = new User();
@@ -36,18 +38,18 @@ namespace TCP_ChatWithDB
             ExceptionMessageShown  = false;
             IsHistoryLoaded = false;
             PauseForOnlineLoop = 1000;
-            ChatHistory = new List<string>();
+            ChatHistory = new List<ChatMessageModel>();
         }
 
         // создаёт объект пользователя
-        public static void CreateUser (string name)
+        protected internal static void CreateUser (string name)
         {
             User.IP = GetEthernetIPAddress();
             User.Name = name;
         }
 
         // метод создаёт объект сообщения, которое отправляется на сервер
-        public static ChatMessageModel CreateMessageObject(string message)
+        protected internal static ChatMessageModel CreateMessageObject(string message)
         {
             ChatMessageModel messageModel = new ChatMessageModel();
             messageModel.Text = message;
@@ -59,7 +61,7 @@ namespace TCP_ChatWithDB
         }
 
         // главный цикл, в котором клиент отправляет статус серверу и принимает ответы сервера
-        public static void DoOnlineLoop()
+        protected internal static void DoOnlineLoop()
         {
             while (OnlineStatus)
             {
@@ -80,27 +82,26 @@ namespace TCP_ChatWithDB
                 }
                 // очистка ответа сервера
                 ServerResponse = string.Empty;
-                //SetStatusLabel(OnlineStatus);
                 // пауза в работе цикла
                 Thread.Sleep (PauseForOnlineLoop);
             }
             SendUserStatus (false);
-            //SetStatusLabel(OnlineStatus);
         }
 
-        /* 
-       ** метод добавляет новое сообщение пользователя в окно чата
-       */
-        public static void AddNewMessageToChatHistory (ChatMessageModel message)
+        // метод добавляет новое сообщение пользователя в окно чата
+        protected internal static void AddNewMessageToChatHistory (ChatMessageModel message)
         {
-            string formattedMessage = GetFormattedMessage (message);
-            if (!ChatHistory.Contains (formattedMessage))
+            //string formattedMessage = GetFormattedMessage (message);
+            if (!ChatHistory.Contains(message))
             {
-                ChatHistory.Add (formattedMessage);
+                lock (lockObject) 
+                { 
+                    ChatHistory.Add(message);
+                }
             }
         }
         // загрузка истории чата, если сервер доступен
-        public static Boolean LoadChatHistory()
+        protected internal static Boolean LoadChatHistory()
         {
             ChatMessageModel[] chat = null;
             try
@@ -117,7 +118,7 @@ namespace TCP_ChatWithDB
                 ChatHistory.Clear();
                 for (int i = 0; i < chat.Length; i++)
                 {
-                    ChatHistory.Add (GetFormattedMessage(chat[i]));
+                    ChatHistory.Add (chat[i]);
                 }
                 return true;
             }
@@ -125,14 +126,14 @@ namespace TCP_ChatWithDB
         }
 
         // сообщает серверу статус клиента - онлайн или офлайн
-        public static string SendUserStatus (Boolean online)
+        protected internal static string SendUserStatus (Boolean online)
         {
             string msgJson = JsonSerializer.Serialize(User);
             return SendMessageAsync ((online ? "ON" : "OF") + msgJson).Result;
         }
 
         // асинхронный метод для отправки запросов серверу
-        public static async Task<string> SendMessageAsync(string msg)
+        protected internal static async Task<string> SendMessageAsync(string msg)
         {
             string serverIP = GetEthernetIPAddress();
             int serverPort = 8080;
@@ -176,26 +177,25 @@ namespace TCP_ChatWithDB
         }
 
         // возвращает внутренний IP-адрес компьютера (сервер должен быть запущен на нём)
-        public static string GetEthernetIPAddress()
+        protected internal static string GetEthernetIPAddress()
         {
             using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
             {
                 socket.Connect("8.8.8.8", 65530);
                 IPEndPoint endPoint = socket.LocalEndPoint as IPEndPoint;
-                //MessageBox.Show(endPoint.Address.ToString());
                 return endPoint.Address.ToString();
             }
         }
 
         // формирует сообщение с именем пользователя и временем для добавления в окно чата
-        public static string GetFormattedMessage(ChatMessageModel message)
+        protected internal static string GetFormattedMessage(ChatMessageModel message)
         {
             DateTime dateTime = DateTime.Parse(message.DateTimeStamp);
             return message.User.Name + "\t\t" + dateTime.Hour + ":" + dateTime.Minute + "\t\t" + message.Text;
         }
 
         // сообщение об ошибке доступа к серверу
-        public static void ShowExceptionMessage(Exception e)
+        protected internal static void ShowExceptionMessage(Exception e)
         {
             if (!ExceptionMessageShown)
             {
@@ -203,7 +203,6 @@ namespace TCP_ChatWithDB
                 MessageBox.Show("Сервер не отвечает. Причина: \n" + e.StackTrace, "Чат");
                 // чтобы сообщение об ошибке не выскакивало много раз
                 ExceptionMessageShown = true;
-                //SetStatusLabel(OnlineStatus);
             }
         }
 

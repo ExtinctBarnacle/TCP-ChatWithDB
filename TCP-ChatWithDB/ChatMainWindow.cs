@@ -10,9 +10,9 @@ namespace TCP_ChatWithDB
     {
         // счётчик сообщений в чате, чтобы цикл формы мог проверить количество новых сообщений
         private int ChatHistoryMessagesCount = 0;
-
+        // предыдущее значение счётчика
         private int OldChatHistoryMessagesCount = 0;
-
+        // объект для блокировки доступа к методу DoMainWindowLoop
         static object lockObject = new object();
 
         public ChatMainWindow()
@@ -37,7 +37,7 @@ namespace TCP_ChatWithDB
             {
                 ChatMessageModel message = CreateMessageObject(MessageBox.Text);
                 ChatClient.AddNewMessageToChatHistory(message);
-                AddNewMessageToChatHistory(ChatClient.ChatHistory[ChatClient.ChatHistory.Count - 1]);
+                AddNewMessageToChatHistory(GetFormattedMessage(ChatClient.ChatHistory[ChatClient.ChatHistory.Count - 1]));
                 MessageBox.Text = string.Empty;
             }
         }
@@ -74,18 +74,18 @@ namespace TCP_ChatWithDB
         // главный цикл формы для проверки количества сообщений в чате (класс ChatClient не уведомляет форму о событиях и связан только с сервером)
         private void DoMainWindowLoop()
         {
-            // количество новых сообщений от других клиентов, не добавленных в окно чата
             while (OnlineStatus)
             {
                 lock (lockObject)
                 {
                     ChatHistoryMessagesCount = ChatClient.ChatHistory.Count;
-                    string name = ChatClient.ChatHistory[ChatClient.ChatHistory.Count - 1];
-                    name = name.Substring(0, name.IndexOf('t') - 1);
-                    if (ChatHistoryMessagesCount > OldChatHistoryMessagesCount && !string.Equals(name, ChatClient.User.Name))
+                if (ChatHistoryMessagesCount > OldChatHistoryMessagesCount && ChatClient.ChatHistory[ChatHistoryMessagesCount - 1] != null && ChatClient.ChatHistory[ChatHistoryMessagesCount - 1].User != null) 
                     {
-                        AddNewMessageToChatHistory(ChatClient.ChatHistory[ChatHistoryMessagesCount - 1]);
-                    }
+                    if (!string.Equals(ChatClient.ChatHistory[ChatHistoryMessagesCount - 1].User.Name, ChatClient.User.Name))
+                    {
+                        AddNewMessageToChatHistory(GetFormattedMessage(ChatClient.ChatHistory[ChatHistoryMessagesCount - 1]));
+                    } 
+                }
                 }
             }
         }
@@ -118,8 +118,6 @@ namespace TCP_ChatWithDB
                     ChatHistory.Items.Add(message);
                     ChatHistory.SelectedIndex = ChatHistory.Items.Count - 1;
                     OldChatHistoryMessagesCount = ChatHistoryMessagesCount;
-                    Interlocked.Increment(ref ChatHistoryMessagesCount);
-                    //ChatHistoryMessagesCount++;
                 });
         }
         // загрузка истории чата, если сервер доступен
@@ -131,7 +129,7 @@ namespace TCP_ChatWithDB
                 ChatHistory.Items.Clear();
                 for (int i = 0; i < ChatClient.ChatHistory.Count; i++)
                 {
-                        ChatHistory.Items.Add(ChatClient.ChatHistory[i]);
+                        ChatHistory.Items.Add(GetFormattedMessage(ChatClient.ChatHistory[i]));
                 }
                 ChatHistoryMessagesCount = OldChatHistoryMessagesCount = ChatClient.ChatHistory.Count;
                 ChatHistory.SelectedIndex = ChatHistory.Items.Count - 1;
